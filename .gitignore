@@ -1,0 +1,14 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Local IDE workspace
+.idea/
+
+# Generated logs
+*.log
+
+# Classifier outputs
+*.p
+*_heatmap*
+dimension_reduction_*.png
