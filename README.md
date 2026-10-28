@@ -1,35 +1,76 @@
 # Text classification project
 
-This repository contains several related, but not interchangeable, text-classification prototypes and an extraction module. They are preserved as historical variants; file numbering does not establish which one is authoritative. No variant has been verified here as a reproducible, end-to-end entry point.
+An exploration of **classical machine learning for labeled documents**: extract text, represent it with TF-IDF features, and compare classifiers that predict a document's category.
 
-## Files
+The code connects document handling with the modeling process, from `Document` and `Corpus` objects to training/test splits, model comparison, and prediction helpers. A short-story example in `text_classification.py` uses story content to predict author labels, illustrating one possible task rather than a bundled dataset or reported experiment.
 
-| File | Role |
+This is an experimental source-code collection, not a packaged application. Start with the reading guide below to explore the ideas; the variants need repairs and a compatible environment before an end-to-end run can be relied on.
+
+## What it explores
+
+- **Document ingestion:** extracting strings from DOCX, PDF, and TXT files, grouping documents into corpora, and working with labeled pandas dataframes.
+- **Text features:** lowercasing, punctuation cleanup, lemmatization, stopword removal, and TF-IDF vectorization. `text_classifier2.py` includes unigram/bigram settings and a feature-count limit.
+- **Model comparison:** methods for Random Forest, support-vector machines, k-nearest neighbors, multinomial Naive Bayes, multinomial logistic regression, and gradient boosting, with grid/randomized hyperparameter searches in several methods.
+- **Evaluation and interpretation:** training/test accuracy, classification reports, confusion matrices, chi-squared feature inspection, and PCA/t-SNE visualization code.
+
+These are techniques represented in the source, not a claim that every implementation currently works.
+
+## Find your way around
+
+| File | What to look for |
 | --- | --- |
-| `text_extraction.py` | Defines `Document` and `Corpus`, reads document text, and converts some CSV/dataframe inputs. `text_classifier.py` imports these classes. |
-| `text_classifier.py` | Classifier implementation that uses `text_extraction.py`. Includes TF-IDF preprocessing, model training/evaluation, prediction helpers, and plotting. |
-| `text_classifier2.py` | A separate classifier variant with its own implementation and attempted CSV, directory, corpus, and pickle inputs. It also imports `text_extraction.py`. Its command-line example is commented out. |
-| `text_classification.py` | A larger, mostly self-contained variant that duplicates extraction and classification logic. Its `main()` refers to a hard-coded `story.data.csv`; it is not a verified command-line workflow. |
-| `chatbotstuff.py` | Imports VADER's `SentimentIntensityAnalyzer`; it does not connect that analyzer to the classifiers. |
+| [text_extraction.py](text_extraction.py) | Shared extraction functions, `Document` and `Corpus`, and CSV/dataframe conversion helpers. Start here for the data model. |
+| [text_classifier.py](text_classifier.py) | Classifier variant importing the shared extraction module, with preprocessing, model methods, evaluation, and prediction helpers. |
+| [text_classifier2.py](text_classifier2.py) | Another variant exploring CSV, directory, `Corpus`, and pickle inputs, plus rare-label filtering and TF-IDF configuration. Its command-line example is commented out. |
+| [text_classification.py](text_classification.py) | Mostly self-contained variant combining extraction and classification. Its `main()` sketches the short-story/author task using a local `story.data.csv` file that is not included. |
+| [chatbotstuff.py](chatbotstuff.py) | A single VADER sentiment-analyzer import, separate from the classification pipeline; not a chatbot implementation. |
 
-The classifier variants contain TF-IDF text features and implementations for Random Forest, support-vector, k-nearest-neighbor, multinomial Naive Bayes, logistic-regression, and gradient-boosting models. They also contain model-comparison, prediction, and dimensionality-reduction/plotting code. These are code capabilities, not claims that each path currently runs or that any particular model performed well.
+The three classifier files are alternatives, not sequential pipeline stages. Their constructors and data handling differ, and file numbering does not identify a recommended or fully working version.
 
-## Inputs and outputs in the code
+### Suggested reading path
 
-The directory-based paths expect labeled documents organized under directories whose names are used as labels. `text_extraction.py` can extract DOCX, PDF, and TXT text when given a `Document` path, but its directory collector selects DOCX, PDF, and legacy DOC files; legacy DOC extraction is not implemented, and TXT files are not selected by that collector.
+1. Read `Document`, `Corpus`, and the extraction helpers in `text_extraction.py` to see how text, names, and labels are represented.
+2. Follow `TextClassifier.__init__` in `text_classifier2.py` through label encoding, the train/test split, and `TfidfVectorizer`. Compare its ingestion paths with the shared corpus helpers.
+3. Pick one model method, such as `MNB` or `SVM`, then follow `model_comparison`, `mod_predict`, and `dim_red` to see the intended evaluation and exploration workflow.
 
-`text_classifier2.py` also contains paths for CSV input with text and label columns, a `Corpus` object, and a pickled model. CSV column selection can prompt interactively, and the conversion path is not verified; these should not be treated as stable interfaces. The other classifier variants have different constructors and data-handling code.
+## Inputs, outputs, and results
 
-Training code splits labeled data into training and test sets and prints model-comparison results. Prediction helpers return a label and may print a conditional probability. Plotting methods write image files, and some variants write pickle files. These outputs depend on the path and method used; there is no shared, documented output format or included example result.
+**Inputs:** the shared corpus dataframe uses `Name`, `Text`, and `Label` columns. For file-based documents, the parent directory name becomes the label. CSV conversion helpers accept column names for text, labels, and titles; the CSV path in `text_classifier2.py` also attempts interactive column selection. These paths are experimental rather than stable interfaces.
 
-## Environment and reproduction status
+**Outputs in the code:** model-comparison tables and printed evaluation reports, category-prediction helpers, and image-writing paths for confusion matrices and dimensionality reduction. Some variants also contain pickle serialization code. Output behavior varies by file and method.
 
-There is no dependency manifest, setup script, sample corpus, expected output, or test suite in the repository. Imports across the variants require packages including NumPy, pandas, NLTK, scikit-learn, matplotlib, and seaborn; document extraction also uses PyPDF2 and python-docx, and `chatbotstuff.py` imports `vaderSentiment`. Exact compatible versions are not recorded.
+**Results:** no sample corpus, trained model, benchmark scores, or reproduced experiment is included. The evaluation methods show how comparisons were intended to be made, but do not establish which model performs best. No Colorism-specific dataset, labels, or validated research findings are provided.
 
-The classifier modules load or download NLTK resources such as `words`, `stopwords`, `punkt`, and `wordnet` at import or initialization time; some document-analysis methods also use part-of-speech tagging. A clean run can therefore require network access and additional NLTK data. The repository does not establish a verified Python version, dependency set, or runnable starting command. Choose none of the variants as a verified entry point until a small, permitted sample dataset and clean-environment smoke test are available.
+## Local exploration
 
-No data or Colorism-specific label scheme is included, and no experimental results are reproduced or reported here. Before applying this prototype to a Colorism research question, a separate study plan should define the task and labels, document data provenance and permission, preserve a reviewable sample/split, and specify baselines and evaluation measures. That is proposed future work, not a result or capability established by this repository.
+Reading the source requires no dataset or dependency installation. To experiment locally, use a separate Python environment rather than your system environment:
 
-## Generated files and data handling
+```powershell
+git clone https://github.com/vvaynethomas/text_classification_project.git
+cd text_classification_project
+python -m venv .venv
+```
 
-The tracked IDE settings, bytecode caches, and log files were local/generated workspace artifacts, not source inputs. The removed logs contained corpus-derived content; their contents are intentionally not reproduced here. The scripts can create debug logs and model/plot outputs in the working directory, so review generated files for sensitive text before sharing them.
+This creates an isolated environment; it does **not** install dependencies or make the prototypes runnable. Keep the environment out of commits.
+
+| Area | Packages referenced |
+| --- | --- |
+| Data and modeling | NumPy, pandas, scikit-learn |
+| Language processing | NLTK |
+| Visualization | matplotlib, seaborn |
+| Document extraction | PyPDF2, python-docx |
+| Separate sentiment stub | vaderSentiment |
+
+There is no dependency manifest, recorded compatible Python/package version set, setup script, or test suite. Older APIs such as pandas `DataFrame.append` and PyPDF2 `PdfFileReader` mean installing the latest packages is not a verified setup recipe.
+
+NLTK resources include `words`, `stopwords`, `punkt`, and `wordnet`; some document-analysis methods also use part-of-speech tagging. Imports can read NLTK corpora, trigger downloads, and create log files before you explicitly train anything.
+
+Before trying a run, select one variant, resolve its data-handling/API issues, and use a small labeled dataset you are allowed to process. There is no verified CLI command to recommend: the `main()` functions are incomplete or tied to local inputs, and constructing a classifier can immediately start training and hyperparameter searches.
+
+## Practical limitations
+
+- **Ingestion needs care.** The directory collector selects DOCX, PDF, and legacy DOC files, but legacy DOC extraction is not implemented and TXT files are not collected. The PDF extractor also has page-handling limitations, so inspect extracted text before modeling.
+- **The pipeline needs a smoke test.** Dataframe assembly, column naming, preprocessing order, and model selection differ across variants and include unfinished paths. Do not treat prediction helpers or plots as a supported API.
+- **Data stays your responsibility.** Scripts can write corpus-derived text to debug logs and produce model/plot files. Use appropriate data, review generated outputs before sharing, and load pickle files only from trusted sources.
+
+The useful starting point is the source-level exploration of document representations and classical classifiers, not a production-ready model or a reproducible performance claim.
