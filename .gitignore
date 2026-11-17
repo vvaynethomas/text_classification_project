@@ -1,14 +1,22 @@
-# Python bytecode
-__pycache__/
-*.py[cod]
-
-# Local IDE workspace
-.idea/
-
-# Generated logs
+# Data and generated outputs
+data/
+outputs/
+*.p
+*.pickle
 *.log
 
-# Classifier outputs
-*.p
-*_heatmap*
-dimension_reduction_*.png
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store

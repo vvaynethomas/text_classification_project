@@ -1,0 +1,10 @@
+# Tested with Python 3.13 (3.10+ should work).
+numpy==2.2.6
+pandas==2.2.3
+scikit-learn==1.6.1
+nltk==3.9.1
+matplotlib==3.10.1
+seaborn==0.13.2
+pypdf==5.4.0
+python-docx==1.1.2
+pytest==8.3.5
