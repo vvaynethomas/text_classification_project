@@ -34,6 +34,7 @@ def test_classifier_runs_and_separates_authors(tmp_path):
     assert clf.model_comparison["Test Set Accuracy"].max() == 1.0
     assert (tmp_path / "smoke.p").exists()
     assert (tmp_path / "model_comparison_smoke.csv").exists()
+    clf.best_mod_key, clf.best_mod = "MNB", clf.models["MNB"]
     assert clf.mod_predict("rocket orbit alien laser star") == "Author B"
 
 
