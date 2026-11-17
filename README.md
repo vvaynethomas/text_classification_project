@@ -13,22 +13,27 @@ chi-squared keyword lists for each label.
 Burgess, Carroll, Chesterton, Edgeworth, Melville, Milton, Shakespeare, Whitman), up to 60 per
 author. 435 passages for training, 77 for testing.
 
-| Model | Train accuracy | Test accuracy |
-| --- | ---: | ---: |
-| k-nearest neighbors (k = 1) | 1.000 | **0.987** |
-| SVM (polynomial kernel, degree 4, C = 0.1) | 0.998 | 0.974 |
-| Multinomial logistic regression (C = 0.87, balanced) | 0.986 | 0.961 |
-| Random forest (800 trees, depth 80) | 1.000 | 0.935 |
-| Multinomial Naive Bayes | 0.929 | 0.922 |
+| Model | 5-fold CV accuracy (train) | Train accuracy | Test accuracy |
+| --- | ---: | ---: | ---: |
+| **SVM (polynomial kernel, degree 4, C = 0.1)** | **0.970** | 0.998 | 0.974 |
+| Multinomial logistic regression (C = 0.87, balanced) | 0.968 | 0.986 | 0.961 |
+| k-nearest neighbors (k = 1) | 0.956 | 1.000 | 0.987 |
+| Random forest (800 trees, depth 80) | 0.956 | 1.000 | 0.935 |
+| Multinomial Naive Bayes | 0.913 | 0.929 | 0.922 |
 
-Nearest-neighbor matching on 300 TF-IDF terms gets 76 of 77 test passages right; its one miss
-is a Maria Edgeworth passage assigned to G. K. Chesterton. The t-SNE map shows why the task is
-this separable: Shakespeare, Milton, Whitman (with Blake beside him), Melville and Carroll form
+The best model is chosen by cross-validated accuracy on the training set alone, which makes
+the SVM the pick; test accuracy is only reported (see [Approach](#approach), step 6). The SVM
+gets 75 of 77 test passages right, missing a William Blake poem and a G. K. Chesterton passage,
+both assigned to Walt Whitman. k-nearest neighbors happens to score higher on this test split
+(76 of 77; its one miss is a Maria Edgeworth passage assigned to Chesterton), but with 77 test
+passages that gap is a single passage, and KNN ranks below the SVM and logistic regression in
+cross-validation. The rows above are `docs/model_comparison_gutenberg_passages.csv`. The t-SNE
+map shows why the task is this separable: Shakespeare, Milton, Whitman (with Blake beside him), Melville and Carroll form
 their own islands, while the remaining prose writers overlap, with the children's storytellers
 Edgeworth, Bryant and Burgess next to Austen and Chesterton.
 
 <p align="center">
-  <img src="docs/knn_confusion_matrix.png" alt="KNN confusion matrix on the test passages" width="720"><br>
+  <img src="docs/svm_confusion_matrix.png" alt="Confusion matrix of the SVM, the model selected by cross-validation, on the 77 test passages" width="720"><br>
   <img src="docs/tsne_passages.png" alt="t-SNE projection of TF-IDF vectors, coloured by author" width="520">
 </p>
 
@@ -53,7 +58,9 @@ With 45 labels and only a handful of stories for most of them, the SVM still nam
 author for three of every four held-out stories. Naive Bayes on 300 sublinear TF-IDF features
 does no better than the majority guess. That run used scikit-learn 0.22, and its logistic
 regression used the `sag` solver, which had not converged; the current code uses `lbfgs`.
-The short-story CSV is not part of this repository (see [Data](#data)).
+That run recorded no cross-validation scores, so the bold marks the highest test accuracy, not a
+model picked by the selection rule below. The short-story CSV is not part of this repository
+(see [Data](#data)).
 
 ## Approach
 
@@ -70,9 +77,10 @@ The short-story CSV is not part of this repository (see [Data](#data)).
    - KNN: grid over k = 1…200
    - logistic regression: grid over C with balanced class weights
    - Naive Bayes: defaults
-6. **Compare** train and test accuracy. The "best" model is the highest test accuracy among
-   models with training accuracy ≤ 0.98, a rule that passes over models that memorize the
-   training set (on the passage data this picks Naive Bayes).
+6. **Select** the best model as the one with the highest mean accuracy over the same seeded
+   stratified 5-fold split of the training set, with ties going to the simpler model
+   (`textclf/selection.py`). Training and test accuracy are reported next to it, but the test
+   set is never used to choose.
 7. **Inspect** with confusion matrices, PCA and t-SNE plots, misclassified test rows
    (`mod_test`) and the most label-correlated terms (`cor_unigrams_and_bigrams`).
 
@@ -84,14 +92,14 @@ pip install -r requirements.txt
 
 python scripts/prepare_gutenberg.py                          # writes data/gutenberg_passages.csv
 python classify.py --data data/gutenberg_passages.csv --plots
-python -m pytest                                             # smoke test on synthetic data, ~2 s
+python -m pytest                                             # smoke and unit tests on synthetic data, ~2 s
 ```
 
-The classifier run takes about six minutes on four CPU cores, five of them in the random-forest
-search. It prints each model's tuned hyperparameters and classification report, and writes to
-`outputs/`:
+The classifier run takes about five minutes on four CPU cores, most of it in the random-forest
+search. It prints each model's tuned hyperparameters, CV accuracy and classification report,
+then the selected model, and writes to `outputs/`:
 
-- `model_comparison_<name>.csv`
+- `model_comparison_<name>.csv` (CV, training and test accuracy per model)
 - `<model>_heatmap_<name>.png` (with `--plots`)
 - `dimension_reduction_{PCA,TSNE}_<name>.png` (with `--plots`)
 - `<name>.p` (pickled classifier; reload with `--resume`)
@@ -140,6 +148,8 @@ textclf/
   documents.py               Document and Corpus, DOCX/PDF/TXT/CSV loading
   preprocessing.py           cleaning, lemmatization, stopwords
   classifier.py              TF-IDF, model search, comparison and plots
+  selection.py               the best-model rule (CV accuracy, ties to the simpler model)
 tests/test_smoke.py          end-to-end run on a synthetic corpus
-docs/                        figures used in this README
+tests/test_selection.py      unit tests for the selection rule
+docs/                        figures and the model comparison used in this README
 ```
