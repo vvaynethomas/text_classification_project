@@ -6,7 +6,7 @@ import pandas as pd
 
 matplotlib.use("Agg")
 
-from textclf import Corpus, TextClassifier, corpify  # noqa: E402
+from textclf import Corpus, TextClassifier, corpify, select_best  # noqa: E402
 from textclf.preprocessing import clean_text  # noqa: E402
 
 VOCAB = {
@@ -32,9 +32,13 @@ def test_classifier_runs_and_separates_authors(tmp_path):
     clf = TextClassifier(inp=corpus, model=["MNB", "SVM", "MLR"], project="smoke", output_dir=tmp_path)
     assert set(clf.model_comparison["Model"]) == {"MNB", "SVM", "MLR"}
     assert clf.model_comparison["Test Set Accuracy"].max() == 1.0
+    assert set(clf.cv_scores) == {"MNB", "SVM", "MLR"}
+    assert list(clf.model_comparison["CV Accuracy"]) == [clf.cv_scores[k] for k in ("MNB", "SVM", "MLR")]
+    # All three separate the authors in every fold, so the tie goes to the simplest, Naive Bayes.
+    assert clf.cv_scores["MNB"] == 1.0
+    assert clf.best_mod_key == select_best(clf.cv_scores) == "MNB"
     assert (tmp_path / "smoke.p").exists()
     assert (tmp_path / "model_comparison_smoke.csv").exists()
-    clf.best_mod_key, clf.best_mod = "MNB", clf.models["MNB"]
     assert clf.mod_predict("rocket orbit alien laser star") == "Author B"
 
 
