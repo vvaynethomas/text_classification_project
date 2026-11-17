@@ -41,7 +41,8 @@ def parse_args():
     parser.add_argument("--title-column", default="Title")
     parser.add_argument("--models", nargs="+", default=FAST_MODELS, choices=["best", *MODELS],
                         help="models to fit (default: all but GBM); 'best' fits all six. The best model is "
-                             "the highest test accuracy among those with training accuracy <= 0.98")
+                             "the one with the highest 5-fold cross-validated accuracy on the training "
+                             "set (ties go to the simpler model); test accuracy is only reported")
     parser.add_argument("--threshold", type=int, default=3,
                         help="drop labels with this many examples or fewer (also the TF-IDF min_df)")
     parser.add_argument("--project", help="name used for output files (default: data file or folder name)")
@@ -66,7 +67,8 @@ def main():
                                 output_dir=args.output_dir)
     if args.plots:
         classifier.dim_red()
-    print(f"Best model: {classifier.best_mod_key}")
+    if classifier.best_mod_key:
+        print(f"Best model (highest CV accuracy on the training set): {classifier.best_mod_key}")
     return classifier
 
 

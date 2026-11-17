@@ -16,13 +16,15 @@ from sklearn.feature_selection import chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.manifold import TSNE
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, ShuffleSplit, train_test_split
+from sklearn.model_selection import (GridSearchCV, RandomizedSearchCV, ShuffleSplit, cross_val_score,
+                                     train_test_split)
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 
 from .config import OUTPUT_DIR
 from .documents import Corpus, Document, csv_to_corpus
 from .preprocessing import parse_text_column, parse_words
+from .selection import CV_COLUMN, cv_folds, select_best
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,7 @@ MODELS = {
     "MLR": "MLR",
     "GBM": "GBM",
 }
-COMPARISON_COLUMNS = ["Model", "Training Set Accuracy", "Test Set Accuracy"]
+COMPARISON_COLUMNS = ["Model", CV_COLUMN, "Training Set Accuracy", "Test Set Accuracy"]
 
 
 def _shuffle_cv(test_size=.33):
@@ -53,7 +55,9 @@ class TextClassifier:
 
     `inp` is a Corpus, a CSV path (pass `text_column` and `label_column`), a directory whose
     sub-folders name the labels, or a pickled classifier (`.p`). `model` is a key of MODELS,
-    a list of keys, or "best" to run all of them and keep the best non-overfitted model.
+    a list of keys, or "best" to run all of them. After fitting, `best_mod` is the model with the
+    highest cross-validated training accuracy (see `textclf.selection`); test accuracy is only
+    reported.
     """
 
     def __init__(self, inp,
@@ -75,6 +79,7 @@ class TextClassifier:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.best_mod_key = None
+        self.cv_scores = {}
 
         if project and load_pickle and self._pickle_path(project).exists():
             logger.info("Loading pickled classifier %s", self._pickle_path(project))
@@ -121,7 +126,7 @@ class TextClassifier:
             keys = list(MODELS) if model == "best" else ([model] if isinstance(model, str) else list(model))
             for key in keys:
                 self.run_model(key)
-            print(self.model_comparison.sort_values("Test Set Accuracy", ascending=False))
+            print(self.model_comparison.sort_values(CV_COLUMN, ascending=False).to_string(index=False))
             self._select_best()
             self.model_comparison.to_csv(self.output_dir / f"model_comparison_{self.project}.csv", index=False)
 
@@ -190,12 +195,9 @@ class TextClassifier:
         logger.debug("model comparison so far: %s", self.model_comparison)
         return model, comp
 
-    def _select_best(self, prefer_not_overfitted=True):
-        df = self.model_comparison
-        if prefer_not_overfitted and (df["Training Set Accuracy"] <= .98).any():
-            df = df[df["Training Set Accuracy"] <= .98]
-        best_name = df.loc[df["Test Set Accuracy"].astype(float).idxmax(), "Model"]
-        self.best_mod_key = next(k for k, v in MODELS.items() if v == best_name)
+    def _select_best(self):
+        """Pick the model with the highest CV accuracy on the training set (textclf.selection)."""
+        self.best_mod_key = select_best(self.cv_scores)
         self.best_mod = self.models[self.best_mod_key]
         return self.best_mod
 
@@ -223,11 +225,16 @@ class TextClassifier:
         return self._search(estimator, _grid_from_best(random_search.best_params_), label)
 
     def _evaluate(self, key, estimator):
-        """Fit on the training set, report train/test accuracy and optionally plot a confusion matrix."""
+        """Score the tuned estimator by k-fold CV on the training set, then fit on the whole training
+        set and report train/test accuracy; optionally plot the test confusion matrix."""
+        cv_acc = cross_val_score(estimator, self.features_train, self.labels_train, scoring="accuracy",
+                                 cv=cv_folds(random_state=RANDOM_STATE)).mean()
+        self.cv_scores[key] = cv_acc
         estimator.fit(self.features_train, self.labels_train)
         test_pred = estimator.predict(self.features_test)
         train_acc = accuracy_score(self.labels_train, estimator.predict(self.features_train))
         test_acc = accuracy_score(self.labels_test, test_pred)
+        print(f"{MODELS[key]} {CV_COLUMN.lower()} (training set): {cv_acc}")
         print(f"{MODELS[key]} training accuracy: {train_acc}")
         print(f"{MODELS[key]} test accuracy: {test_acc}")
         print(classification_report(self.labels_test, test_pred, zero_division=0))
@@ -244,7 +251,7 @@ class TextClassifier:
             plt.savefig(self.output_dir / f"{key}_heatmap_{self.project}.png", bbox_inches="tight")
             plt.close()
 
-        comp = pd.DataFrame({"Model": MODELS[key], "Training Set Accuracy": train_acc,
+        comp = pd.DataFrame({"Model": MODELS[key], CV_COLUMN: cv_acc, "Training Set Accuracy": train_acc,
                              "Test Set Accuracy": test_acc}, index=[0])
         return estimator, comp
 
