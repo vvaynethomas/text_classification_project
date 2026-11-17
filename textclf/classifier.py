@@ -238,9 +238,9 @@ class TextClassifier:
             names = [self.category_names[c] for c in codes]
             plt.figure(figsize=(12.8, 6))
             sns.heatmap(conf_matrix, annot=True, xticklabels=names, yticklabels=names, cmap="Blues")
-            plt.ylabel("Predicted")
-            plt.xlabel("Actual")
-            plt.title("Confusion matrix")
+            plt.ylabel("Actual")
+            plt.xlabel("Predicted")
+            plt.title(f"{MODELS[key]} confusion matrix (test set)")
             plt.savefig(self.output_dir / f"{key}_heatmap_{self.project}.png", bbox_inches="tight")
             plt.close()
 
@@ -280,11 +280,13 @@ class TextClassifier:
         return self._evaluate("MNB", MultinomialNB())
 
     def MLR(self):
-        # With the 'sag' solver and more than two classes scikit-learn fits a multinomial model.
+        # Multinomial (softmax) logistic regression. 'lbfgs' converges on these features; 'sag' at
+        # the default 100 iterations did not, and some C values collapsed to near-zero accuracy.
         param_grid = {"C": [float(x) for x in np.linspace(start=0.6, stop=1, num=10)],
-                      "solver": ["sag"],
+                      "solver": ["lbfgs"],
                       "class_weight": ["balanced"]}
-        best = self._search(LogisticRegression(random_state=RANDOM_STATE), param_grid, "logistic regression")
+        best = self._search(LogisticRegression(random_state=RANDOM_STATE, max_iter=1000), param_grid,
+                            "logistic regression")
         return self._evaluate("MLR", best)
 
     def GBM(self):
@@ -317,14 +319,16 @@ class TextClassifier:
         if model == "PCA":
             mod, title = PCA(n_components=n_components), "PCA decomposition"
         elif model == "TSNE":
-            mod, title = TSNE(n_components=2), "t-SNE decomposition"
+            mod, title = TSNE(n_components=2, random_state=RANDOM_STATE), "t-SNE decomposition"
         else:
             raise ValueError("model must be 'PCA' or 'TSNE'")
         components = mod.fit_transform(features)
         df_full = pd.DataFrame(components[:, :2], columns=["PC1", "PC2"])
         df_full["label_name"] = [self.category_names[str(c)] for c in labels]
         plt.figure(figsize=(10, 10))
-        sns.scatterplot(x="PC1", y="PC2", hue="label_name", data=df_full, alpha=.7).set_title(title)
+        ax = sns.scatterplot(x="PC1", y="PC2", hue="label_name", data=df_full, alpha=.7)
+        ax.set(title=title, xlabel="Component 1", ylabel="Component 2")
+        ax.legend(title="Label")
         plt.savefig(self.output_dir / f"dimension_reduction_{model}_{self.project}.png", bbox_inches="tight")
         plt.close()
 
