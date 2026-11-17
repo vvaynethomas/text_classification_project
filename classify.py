@@ -1,6 +1,6 @@
 """Train and compare classifiers on a labeled text collection.
 
-    python classify.py                                  # data/story.data.csv, author labels, all models
+    python classify.py                                  # data/story.data.csv, author labels, all models but GBM
     python classify.py --models SVM random_forest KNN MNB MLR --plots
     python classify.py --data path/to/folder            # one sub-folder per label (.txt/.docx/.pdf)
 """
